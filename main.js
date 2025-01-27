@@ -1,6 +1,12 @@
 // console.log('Hello from Electron 👋')
 const { app, BrowserWindow, dialog } = require('electron/main');
 
+if(process.platform === 'win32')
+{
+    process.env.FFMPEG_PATH = 'E:/Tools/ffmpeg-master-latest-win64-gpl/ffmpeg-master-latest-win64-gpl/bin/ffmpeg.exe';
+    process.env.FFPROBE_PATH = 'E:/Tools/ffmpeg-master-latest-win64-gpl/ffmpeg-master-latest-win64-gpl/bin/ffprobe.exe';
+}
+
 const createWindow = () =>{
     const win = new BrowserWindow({
         width : 800,

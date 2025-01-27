@@ -55,21 +55,42 @@ document.getElementById('runButton').addEventListener('click', async () => {
     }
     // ffmpeg -i backup.mkv -i sub_chen.ass -codec copy -map 0 -map 1 output_aaa.mkv
     console.log('StartRendering');
-    ffmpeg(videoFilePath)
-        .input(subtitleFilePath)
-        .outputOptions('-c:s', 'srt')
-        .outputOptions('-map', '0')
-        .outputOptions('-map', '1')
-        .on('stdout', (stdout) => {
-            console.log(stdout);
-        })
-        .on('end', () => {
-            console.log('soft subtitle added successfully');
-        })
-        .on('error', (err) => {
-            console.error('Error occurred', err.message);
-        })
-        .save(outputFullPath);
+
+    const ffTest = ffmpeg(videoFilePath);
+    ffTest.input(subtitleFilePath);
+    if(subtitleFileExtName === 'ass'){
+        ffTest.outputOptions('-codec', 'copy');
+    } else {
+        ffTest.outputOptions('-c:s', 'srt');
+    }
+    ffTest.outputOptions('-map', '0');
+    ffTest.outputOptions('-map', '1');
+
+
+    ffTest.on('end', () => {
+        console.log('soft subtitle added successfully');
+    })
+    .on('error', (err) => {
+        console.log('Error occurred', err.message);
+    })
+    .save(outputFullPath);
+
+
+    // ffmpeg(videoFilePath)
+    //     .input(subtitleFilePath)
+    //     .outputOptions('-c:s', 'srt')
+    //     .outputOptions('-map', '0')
+    //     .outputOptions('-map', '1')
+    //     .on('stdout', (stdout) => {
+    //         console.log(stdout);
+    //     })
+    //     .on('end', () => {
+    //         console.log('soft subtitle added successfully');
+    //     })
+    //     .on('error', (err) => {
+    //         console.error('Error occurred', err.message);
+    //     })
+    //     .save(outputFullPath);
 
 
 
