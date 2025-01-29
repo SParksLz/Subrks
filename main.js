@@ -23,13 +23,15 @@ const createWindow = () =>{
 const { ipcMain } = require('electron');
 ipcMain.handle('dialog:selectFolder', async () => {
     const result = await dialog.showOpenDialog({
-        properties : ['openFile'],
-        filters : [
-            { name : 'All Files', extensions : ['*']},
-        ]
+        properties : ['openDirectory', 'multiSelections'],
     });
-    // console.log(result.filePaths);
-    // prePath = result.filePaths;
+    return result.filePaths;
+});
+
+ipcMain.handle('dialog:selectFile', async ()=> {
+    const result = await dialog.showOpenDialog({
+        properties : ['openFile', 'multiSelections'],
+    })
     return result.filePaths;
 });
 
