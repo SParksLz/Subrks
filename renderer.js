@@ -1,7 +1,10 @@
 const fs = require('fs');
 const path = require('path');
 const { ipcRenderer, dialog } = require('electron');
-const ffmpeg = require('fluent-ffmpeg');
+const { TaskObject } = require('./taskDescription.js');
+
+// import TaskObject from './taskDescription.js';
+// const ffmpeg = require('fluent-ffmpeg');
 
 
 const taskContainer = document.getElementById('taskContainer');
@@ -34,7 +37,7 @@ function createInputGroup(folderPath, fileName, isSub)
     inputGroup.style.padding = '1px';
 
     const inputText = document.createElement('input');
-    inputText.style.width = "500px";
+    inputText.style.width = "900px";
     if(!isSub){
         inputText.value = path.join(folderPath, fileName);
     }
@@ -55,7 +58,8 @@ function createInputGroup(folderPath, fileName, isSub)
 
 }
 
-function addTask(filePath){
+async function addTask(filePath, index){
+    // const taskNum = await ipcRenderer.invoke('getTaskNum');
     console.log(filePath);
     const uniqueTaskBlock = document.createElement('div');
     uniqueTaskBlock.style.display = 'flex';
@@ -65,6 +69,11 @@ function addTask(filePath){
     const uniqueTaskButton = document.createElement('button');
     uniqueTaskButton.innerText = 'Remove Task';
     uniqueTaskButton.style.color = 'red';
+
+    uniqueTaskButton.addEventListener('click', ()=>{
+        uniqueTaskBlock.remove();
+        ipcRenderer.invoke('removeTask', index);
+    });
 
     var videoFileExtName = path.extname(filePath);
     var videoFileName = path.basename(filePath, videoFileExtName);
@@ -78,12 +87,14 @@ function addTask(filePath){
 
     uniqueTaskBlock.appendChild(currentTask);
     uniqueTaskBlock.appendChild(uniqueTaskButton);
+    var taskObj = new TaskObject(filePath, '');
 
     document.getElementById('taskContainer').appendChild(uniqueTaskBlock);
 
 }
 
-function scanFolder(folderPath){
+async function scanFolder(folderPath){
+    const taskNum = await ipcRenderer.invoke('getTaskNum');
     fs.readdir(folderPath, (err, files) =>{
 
         for(var i = 0 ; i < files.length; i++)
@@ -96,20 +107,21 @@ function scanFolder(folderPath){
                 extName === '.mp4' ||
                 extName === '.avi'){
                 var fullPath = path.join(folderPath, fileName);
-                addTask(fullPath);
+                addTask(fullPath, i + taskNum);
             }
         }
     });
 }
 
-function getAllTask(){
-    const taskContainer = document.getElementById('taskContainer');
-    taskContainer.children
-}
+// function getAllTask(){
+//     const taskContainer = document.getElementById('taskContainer');
+//     taskContainer.children
+// }
 
 
 document.getElementById('selectByFolder').addEventListener('click', async () => {
     const path = await ipcRenderer.invoke('dialog:selectFolder');
+    const taskNum = await ipcRenderer.invoke('getTaskNum');
     if(path && path.length > 0){
         for(var i = 0 ; i < path.length; i++){
             // console.log(folderPath[i]);
@@ -125,7 +137,7 @@ document.getElementById('selectByFolder').addEventListener('click', async () => 
                     extName === '.mp4' ||
                     extName === '.avi'){
                     var fullPath = path.join(folderPath, fileName);
-                    addTask(fullPath);
+                    addTask(fullPath, i+taskNum);
                 }
             }
         }
@@ -134,9 +146,10 @@ document.getElementById('selectByFolder').addEventListener('click', async () => 
 
 document.getElementById('addTasks').addEventListener('click', async () =>{
     const filePath = await ipcRenderer.invoke('dialog:selectFile');
+    const taskNum = await ipcRenderer.invoke('getTaskNum');
     if(filePath && filePath.length > 0){
         for(var i = 0 ; i < filePath.length; i++){
-            addTask(filePath[i]);
+            addTask(filePath[i], i + taskNum);
         }
     }
 });
@@ -145,7 +158,7 @@ document.getElementById('addTasks').addEventListener('click', async () =>{
 
 // run task
 document.getElementById('runButton').addEventListener('click', async () => {
-    getAllTask();
+    // getAllTask();
     // var videoFilePath = document.getElementById('videoPath').value;
     // var subtitleFilePath = document.getElementById('subtitlePath').value;
 

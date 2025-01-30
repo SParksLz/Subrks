@@ -1,11 +1,20 @@
 // console.log('Hello from Electron 👋')
 const { app, BrowserWindow, dialog } = require('electron/main');
+const ffmpeg = require('fluent-ffmpeg');
+const path = require('path');
+// import { TaskObject } from './task.js'
+// import TaskObject from './taskDescription.js';
+const { TaskObject } = require('./taskDescription.js');
+
 
 if(process.platform === 'win32')
 {
     process.env.FFMPEG_PATH = 'E:/Tools/ffmpeg-master-latest-win64-gpl/ffmpeg-master-latest-win64-gpl/bin/ffmpeg.exe';
     process.env.FFPROBE_PATH = 'E:/Tools/ffmpeg-master-latest-win64-gpl/ffmpeg-master-latest-win64-gpl/bin/ffprobe.exe';
 }
+
+var taskArray = [];
+
 
 const createWindow = () =>{
     const win = new BrowserWindow({
@@ -35,6 +44,17 @@ ipcMain.handle('dialog:selectFile', async ()=> {
     return result.filePaths;
 });
 
+ipcMain.handle('addNewTask', (event, newTask) => {
+    taskArray = taskArray.push(newTask);
+});
+
+ipcMain.handle('removeTask', (index) => {
+    taskArray.splice(index, 1);
+});
+
+ipcMain.handle('getTaskNum', ()=>{
+    return taskArray.length;
+});
 app.whenReady().then(()=>{
     createWindow();
     app.on('activate', () => {
