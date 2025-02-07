@@ -1,9 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 const { ipcRenderer, dialog } = require('electron');
-const TaskDescription = require('./taskmodule.js');
-// import TaskObject from './taskDescription.js';
-// const ffmpeg = require('fluent-ffmpeg');
+
+let uiContainer = [];
 
 const taskContainer = document.getElementById('taskContainer');
 taskContainer.style.display = 'flex';
@@ -13,19 +12,7 @@ taskContainer.style.padding = '5px';
 taskContainer.style.border = '1px solid #ccc';
 taskContainer.style.borderRadius = '10px';
 
-
-function dualInputGroup()
-{
-    const currentTaskGroup = document.createElement('div');
-    currentTaskGroup.style.display = 'flex';
-    currentTaskGroup.style.flexDirection = 'column';
-    currentTaskGroup.style.gap = '1px';
-    currentTaskGroup.style.padding = '1px';
-    currentTaskGroup.style.border = '1px solid #ccc';
-    currentTaskGroup.style.borderRadius = '10px';
-    return currentTaskGroup;
-}
-
+// debug value : index
 function createInputGroup(folderPath, fileName, isSub, index)
 {
     const inputGroup = document.createElement('div');
@@ -42,139 +29,125 @@ function createInputGroup(folderPath, fileName, isSub, index)
     const inputSelectButton = document.createElement('button');
     inputSelectButton.innerText = '...';
     inputSelectButton.addEventListener('click', async () => {
-        const folderPath = await ipcRenderer.invoke('dialog:selectFile');
-        if(folderPath && folderPath.length > 0){
-            console.log(folderPath[0]);
-            inputText.value = folderPath[0];
-            ipcRenderer.invoke('updateTask', folderPath[0], isSub, index);
-        } else {
-            console.log('nothing');
-        }
+        const folderPath = await ipcRenderer.invoke('dialog:selectSubtitle');
+        inputText.value = folderPath;
+        ipcRenderer.invoke('setSubtitle', folderPath, index);
+        // if(folderPath && folderPath.length > 0){
+        //     console.log(folderPath[0]);
+        //     inputText.value = folderPath[0];
+        //     // ipcRenderer.invoke('updateTask', folderPath[0], isSub, index);
+        //     ipcRenderer.invoke('setSubtitle', folderPath[0], index);
+        // } else {
+        //     console.log('nothing');
+        // }
     });
     inputGroup.appendChild(inputText);
     inputGroup.appendChild(inputSelectButton);
     return inputGroup;
-
 }
 
-async function addTask(filePath, index){
-    // const taskNum = await ipcRenderer.invoke('getTaskNum');
-    // console.log(filePath);
+function dualInputGroup()
+{
+    const currentTaskGroup = document.createElement('div');
+    currentTaskGroup.style.display = 'flex';
+    currentTaskGroup.style.flexDirection = 'column';
+    currentTaskGroup.style.gap = '10px';
+    currentTaskGroup.style.padding = '10px';
+    currentTaskGroup.style.border = '1px solid #ccc';
+    currentTaskGroup.style.borderRadius = '10px';
+    return currentTaskGroup;
+}
+
+
+
+async function addTask(filePath, subtitlePath, index){
     const uniqueTaskBlock = document.createElement('div');
     uniqueTaskBlock.id = `taskBlock_${index}`;
     uniqueTaskBlock.style.display = 'flex';
     uniqueTaskBlock.style.flexDirection = 'row';
     uniqueTaskBlock.style.gap = '3px';
     uniqueTaskBlock.style.padding = '3px';
-    uniqueTaskBlock.on
+    uniqueTaskBlock.innerHTML = `TaskBlock ${index}`;
+    uniqueTaskBlock.dataset.index = index;
+
     const uniqueTaskButton = document.createElement('button');
     uniqueTaskButton.innerText = 'Remove Task';
     uniqueTaskButton.style.color = 'red';
     uniqueTaskButton.addEventListener('click', async ()=>{
-        // var restCount = await ipcRenderer.invoke('getTaskNum');
-        // console.log('rest block count : ', restCount);
-        console.log('current task block id : ', uniqueTaskBlock.id);
-        uniqueTaskBlock.remove();
+        console.log(`remove ${index}`);
         await ipcRenderer.invoke('removeTask', index);
-        var restCount = await ipcRenderer.invoke('getTaskNum');
-        console.log('rest block count : ', restCount);
     });
 
+    const currentTask = dualInputGroup();
+    //video path
     var videoFileExtName = path.extname(filePath);
     var videoFileName = path.basename(filePath, videoFileExtName);
     var videoDir = path.dirname(filePath);
-
-    const currentTask = dualInputGroup();
     const videoGroup = createInputGroup(videoDir,  `${videoFileName}${videoFileExtName}`, false, index);
-    const subtitleGroup = createInputGroup('', '', true, index);
+
+    //subtitle path
+    let subtitleGroup;
+    if(fs.existsSync(subtitlePath))
+    {
+        var subFileExtName = path.extname(subtitlePath);
+        var subFileName = path.basename(subtitlePath, subFileExtName);
+        var subDir = path.dirname(subtitlePath);
+        subtitleGroup = createInputGroup(subDir,  `${subFileName}${subFileExtName}`, false, index);
+    } else {
+        subtitleGroup = createInputGroup('', '', true, index);
+    }
+
     currentTask.appendChild(videoGroup);
     currentTask.appendChild(subtitleGroup);
 
     uniqueTaskBlock.appendChild(currentTask);
     uniqueTaskBlock.appendChild(uniqueTaskButton);
-    // var to = new TaskObject(filePath, '');
-    var to = new TaskDescription(filePath, uniqueTaskBlock.id);
-
-    // to.test();
-    const updateArray = ipcRenderer.invoke('addNewTask', to);
-
+    uiContainer.push(uniqueTaskBlock);
     document.getElementById('taskContainer').appendChild(uniqueTaskBlock);
 
 }
+ipcRenderer.on('update-tasks', (event, tasks) => {
+    // addTask(filePath, index);
+    for(var i = 0 ; i < uiContainer.length; i++){
+        uiContainer[i].remove();
+        // uiContainer.splice(i, 1);
+    }
+    for(var i = 0 ; i < tasks.length; i++){
+        addTask(tasks[i].videoFile,tasks[i].subFile, i);
+    }
+});
 
-async function scanFolder(folderPath){
-    const taskNum = await ipcRenderer.invoke('getTaskNum');
-    fs.readdir(folderPath, (err, files) =>{
-        var counter = 0;
-        for(var i = 0 ; i < files.length; i++)
-        {
-            // console.log(files[i]);
-            var currentFolderPath = folderPath;
-            var fileName = files[i];
-            var extName = path.extname(fileName);
-            if( extName === '.mkv' || 
-                extName === '.mp4' ||
-                extName === '.avi'){
-                var fullPath = path.join(folderPath, fileName);
-                addTask(fullPath, counter + taskNum);
-                counter++;
-            }
-        }
-    });
-}
-
-// function getAllTask(){
-//     const taskContainer = document.getElementById('taskContainer');
-//     taskContainer.children
-// }
-
+ipcRenderer.on('task-finish', (event, index) => {
+    var test = uiContainer[index];
+    test;
+    uiContainer[index].style.backgroundColor = 'green';
+});
 
 document.getElementById('selectByFolder').addEventListener('click', async () => {
-    const path = await ipcRenderer.invoke('dialog:selectFolder');
-    const taskNum = await ipcRenderer.invoke('getTaskNum');
-    if(path && path.length > 0){
-        var counter = 0;
-        for(var i = 0 ; i < path.length; i++){
-            // console.log(folderPath[i]);
-            // scanFolder(folderPath[i]);
-            const stats = fs.lstatSync(path[i]);
-            if(stats.isDirectory()){
-                console.log(`current path is directory ${path[i]}`)
-                scanFolder(path[i]);
-            } else if(stats.isFile()){
-                console.log(`current path is file ${path[i]}`);
-                var extName = path.extname(path[i]);
-                if( extName === '.mkv' || 
-                    extName === '.mp4' ||
-                    extName === '.avi'){
-                    var fullPath = path.join(folderPath, fileName);
-                    addTask(fullPath, counter+taskNum);
-                    counter ++;
-                }
-            }
-        }
-    }
+    await ipcRenderer.invoke('dialog:selectFolder');
 });
 
 document.getElementById('addTasks').addEventListener('click', async () =>{
-    const filePath = await ipcRenderer.invoke('dialog:selectFile');
-    const taskNum = await ipcRenderer.invoke('getTaskNum');
-    if(filePath && filePath.length > 0){
-        for(var i = 0 ; i < filePath.length; i++){
-            addTask(filePath[i], i + taskNum);
-        }
-    }
+    await ipcRenderer.invoke('dialog:selectFile');
 });
 
-
+document.getElementById('clearAll').addEventListener('click', async() => {
+    await ipcRenderer.invoke('clearAll');
+});
 
 // run task
 document.getElementById('runButton').addEventListener('click', async () => {
-    const tasks = await ipcRenderer.invoke('getAllTask');
-    for(var i = 0; i < tasks.length; i++) {
-        console.log('current_video : ', tasks[i].video);
-        console.log('current_subtitle : ', tasks[i].subtitle);
-    }
+    await ipcRenderer.invoke('runTasks');
+    // for(var i = 0; i < tasks.length; i++) {
+    //     console.log('current_video : ', tasks[i].video);
+    //     console.log('current_subtitle : ', tasks[i].subtitle);
+    //     console.log('finished !!');
+    //     // tasks[i].setFinish();
+    //     tasks[i].isFinished = true;
+    //     await ipcRenderer.invoke('containerUpdate');
+    //     console.log('---------------------------------------------------------------------');
+    // }
+
     // getAllTask();
     // var videoFilePath = document.getElementById('videoPath').value;
     // var subtitleFilePath = document.getElementById('subtitlePath').value;
