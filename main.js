@@ -2,9 +2,10 @@
 const { app, BrowserWindow, dialog } = require('electron/main');
 const ffmpeg = require('fluent-ffmpeg');
 const path = require('path');
+const TaskDescription = require('./taskmodule.js');
 // import { TaskObject } from './task.js'
 // import TaskObject from './taskDescription.js';
-const { TaskObject } = require('./taskDescription.js');
+// const taskObject = require('./taskDescription.js');
 
 
 if(process.platform === 'win32')
@@ -13,7 +14,7 @@ if(process.platform === 'win32')
     process.env.FFPROBE_PATH = 'E:/Tools/ffmpeg-master-latest-win64-gpl/ffmpeg-master-latest-win64-gpl/bin/ffprobe.exe';
 }
 
-var taskArray = [];
+let taskArray = [];
 
 
 const createWindow = () =>{
@@ -45,16 +46,30 @@ ipcMain.handle('dialog:selectFile', async ()=> {
 });
 
 ipcMain.handle('addNewTask', (event, newTask) => {
-    taskArray = taskArray.push(newTask);
+    // taskArray = taskArray.push(newTask);
+    taskArray.push(newTask);
+    return taskArray;
 });
 
-ipcMain.handle('removeTask', (index) => {
+ipcMain.handle('removeTask', (event, index) => {
+    console.log('remove_index:', index);
     taskArray.splice(index, 1);
 });
-
+ipcMain.handle('updateTask', (event, path, isSub, index) => {
+    console.log(index)
+    if(isSub){
+        taskArray[index].subtitle = path;
+    } else {
+        taskArray[index].video = path;
+    }
+});
 ipcMain.handle('getTaskNum', ()=>{
     return taskArray.length;
 });
+ipcMain.handle('getAllTask', ()=>{
+    return taskArray;
+});
+
 app.whenReady().then(()=>{
     createWindow();
     app.on('activate', () => {

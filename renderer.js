@@ -1,11 +1,9 @@
 const fs = require('fs');
 const path = require('path');
 const { ipcRenderer, dialog } = require('electron');
-const { TaskObject } = require('./taskDescription.js');
-
+const TaskDescription = require('./taskmodule.js');
 // import TaskObject from './taskDescription.js';
 // const ffmpeg = require('fluent-ffmpeg');
-
 
 const taskContainer = document.getElementById('taskContainer');
 taskContainer.style.display = 'flex';
@@ -28,7 +26,7 @@ function dualInputGroup()
     return currentTaskGroup;
 }
 
-function createInputGroup(folderPath, fileName, isSub)
+function createInputGroup(folderPath, fileName, isSub, index)
 {
     const inputGroup = document.createElement('div');
     inputGroup.style.display = 'flex';
@@ -44,10 +42,11 @@ function createInputGroup(folderPath, fileName, isSub)
     const inputSelectButton = document.createElement('button');
     inputSelectButton.innerText = '...';
     inputSelectButton.addEventListener('click', async () => {
-        const folderPath = await ipcRenderer.invoke('dialog:selectFolder');
+        const folderPath = await ipcRenderer.invoke('dialog:selectFile');
         if(folderPath && folderPath.length > 0){
             console.log(folderPath[0]);
             inputText.value = folderPath[0];
+            ipcRenderer.invoke('updateTask', folderPath[0], isSub, index);
         } else {
             console.log('nothing');
         }
@@ -60,19 +59,25 @@ function createInputGroup(folderPath, fileName, isSub)
 
 async function addTask(filePath, index){
     // const taskNum = await ipcRenderer.invoke('getTaskNum');
-    console.log(filePath);
+    // console.log(filePath);
     const uniqueTaskBlock = document.createElement('div');
+    uniqueTaskBlock.id = `taskBlock_${index}`;
     uniqueTaskBlock.style.display = 'flex';
     uniqueTaskBlock.style.flexDirection = 'row';
     uniqueTaskBlock.style.gap = '3px';
     uniqueTaskBlock.style.padding = '3px';
+    uniqueTaskBlock.on
     const uniqueTaskButton = document.createElement('button');
     uniqueTaskButton.innerText = 'Remove Task';
     uniqueTaskButton.style.color = 'red';
-
-    uniqueTaskButton.addEventListener('click', ()=>{
+    uniqueTaskButton.addEventListener('click', async ()=>{
+        // var restCount = await ipcRenderer.invoke('getTaskNum');
+        // console.log('rest block count : ', restCount);
+        console.log('current task block id : ', uniqueTaskBlock.id);
         uniqueTaskBlock.remove();
-        ipcRenderer.invoke('removeTask', index);
+        await ipcRenderer.invoke('removeTask', index);
+        var restCount = await ipcRenderer.invoke('getTaskNum');
+        console.log('rest block count : ', restCount);
     });
 
     var videoFileExtName = path.extname(filePath);
@@ -80,14 +85,18 @@ async function addTask(filePath, index){
     var videoDir = path.dirname(filePath);
 
     const currentTask = dualInputGroup();
-    const videoGroup = createInputGroup(videoDir,  `${videoFileName}${videoFileExtName}`, false);
-    const subtitleGroup = createInputGroup('', '', true);
+    const videoGroup = createInputGroup(videoDir,  `${videoFileName}${videoFileExtName}`, false, index);
+    const subtitleGroup = createInputGroup('', '', true, index);
     currentTask.appendChild(videoGroup);
     currentTask.appendChild(subtitleGroup);
 
     uniqueTaskBlock.appendChild(currentTask);
     uniqueTaskBlock.appendChild(uniqueTaskButton);
-    var taskObj = new TaskObject(filePath, '');
+    // var to = new TaskObject(filePath, '');
+    var to = new TaskDescription(filePath, uniqueTaskBlock.id);
+
+    // to.test();
+    const updateArray = ipcRenderer.invoke('addNewTask', to);
 
     document.getElementById('taskContainer').appendChild(uniqueTaskBlock);
 
@@ -96,7 +105,7 @@ async function addTask(filePath, index){
 async function scanFolder(folderPath){
     const taskNum = await ipcRenderer.invoke('getTaskNum');
     fs.readdir(folderPath, (err, files) =>{
-
+        var counter = 0;
         for(var i = 0 ; i < files.length; i++)
         {
             // console.log(files[i]);
@@ -107,7 +116,8 @@ async function scanFolder(folderPath){
                 extName === '.mp4' ||
                 extName === '.avi'){
                 var fullPath = path.join(folderPath, fileName);
-                addTask(fullPath, i + taskNum);
+                addTask(fullPath, counter + taskNum);
+                counter++;
             }
         }
     });
@@ -123,6 +133,7 @@ document.getElementById('selectByFolder').addEventListener('click', async () => 
     const path = await ipcRenderer.invoke('dialog:selectFolder');
     const taskNum = await ipcRenderer.invoke('getTaskNum');
     if(path && path.length > 0){
+        var counter = 0;
         for(var i = 0 ; i < path.length; i++){
             // console.log(folderPath[i]);
             // scanFolder(folderPath[i]);
@@ -137,7 +148,8 @@ document.getElementById('selectByFolder').addEventListener('click', async () => 
                     extName === '.mp4' ||
                     extName === '.avi'){
                     var fullPath = path.join(folderPath, fileName);
-                    addTask(fullPath, i+taskNum);
+                    addTask(fullPath, counter+taskNum);
+                    counter ++;
                 }
             }
         }
@@ -158,6 +170,11 @@ document.getElementById('addTasks').addEventListener('click', async () =>{
 
 // run task
 document.getElementById('runButton').addEventListener('click', async () => {
+    const tasks = await ipcRenderer.invoke('getAllTask');
+    for(var i = 0; i < tasks.length; i++) {
+        console.log('current_video : ', tasks[i].video);
+        console.log('current_subtitle : ', tasks[i].subtitle);
+    }
     // getAllTask();
     // var videoFilePath = document.getElementById('videoPath').value;
     // var subtitleFilePath = document.getElementById('subtitlePath').value;
