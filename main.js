@@ -3,7 +3,7 @@ const { app, BrowserWindow, dialog, ipcMain } = require('electron/main');
 const ffmpeg = require('fluent-ffmpeg');
 const fs = require('fs');
 const path = require('path');
-const {TaskDescription} = require('./taskmodule.js');
+// const {TaskDescription} = require('./taskmodule.js');
 
 
 if(process.platform === 'win32')
@@ -14,6 +14,67 @@ if(process.platform === 'win32')
 
 // var taskContainer = new TaskContainer();
 let taskArray = [];
+
+function runTaskWithFFMpeg(videoPath, subtitlePath){
+    const videoFileExtName = path.extname(videoPath);
+    const videoFileName = path.basename(videoPath, videoFileExtName);
+    const videoDir = path.dirname(videoPath);
+
+    const subtitleFileExtName = path.extname(subtitlePath);
+    const subtitleFileName = path.basename(subtitlePath, subtitleFileExtName);
+    const subtitleDir = path.dirname(subtitlePath);
+
+    const outputDir = path.join(videoDir, 'output');
+    const outputName = `${videoFileName}_test${videoFileExtName}`;
+    const outputFullPath = path.join(outputDir, outputName);
+
+    if(!fs.existsSync(outputDir))
+    {
+        fs.mkdirSync(outputDir, { recursive: true });
+    } else {
+        console.log('Output Folder exists ')
+    }
+    // ffmpeg -i backup.mkv -i sub_chen.ass -codec copy -map 0 -map 1 output_aaa.mkv
+    console.log('StartRendering');
+
+    const ffTest = ffmpeg(videoPath);
+    ffTest.input(subtitlePath);
+    if(subtitleFileExtName === 'ass'){
+        ffTest.outputOptions('-codec', 'copy');
+    } else {
+        ffTest.outputOptions('-c:s', 'srt');
+    }
+    ffTest.outputOptions('-map', '0');
+    ffTest.outputOptions('-map', '1');
+
+
+    ffTest.on('end', () => {
+        console.log('soft subtitle added successfully');
+    })
+    .on('error', (err) => {
+        console.log('Error occurred', err.message);
+    })
+    .save(outputFullPath);
+
+
+    // ffmpeg(videoFilePath)
+    //     .input(subtitleFilePath)
+    //     .outputOptions('-c:s', 'srt')
+    //     .outputOptions('-map', '0')
+    //     .outputOptions('-map', '1')
+    //     .on('stdout', (stdout) => {
+    //         console.log(stdout);
+    //     })
+    //     .on('end', () => {
+    //         console.log('soft subtitle added successfully');
+    //     })
+    //     .on('error', (err) => {
+    //         console.error('Error occurred', err.message);
+    //     })
+    //     .save(outputFullPath);
+
+
+}
 
 const createWindow = () =>{
     const win = new BrowserWindow({
@@ -110,14 +171,16 @@ const createWindow = () =>{
         }
     });
 
-    ipcMain.handle('runTasks', async ()=>{
+    ipcMain.handle('runTasks', ()=>{
         for(var i = 0 ; i < taskArray.length; i++){
             const currentTask = taskArray[i];
             console.log(currentTask.videoFile);
             console.log(currentTask.subFile);
             console.log('----------------------------------');
+            runTaskWithFFMpeg(currentTask.videoFile, currentTask.subFile);
             win.webContents.send('task-finish', i);
         }
+        console.log('conversion success')
     });
 }
 

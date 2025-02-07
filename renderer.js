@@ -22,7 +22,7 @@ function createInputGroup(folderPath, fileName, isSub, index)
     inputGroup.style.padding = '1px';
 
     const inputText = document.createElement('input');
-    inputText.style.width = "900px";
+    inputText.style.width = "1300px";
     if(!isSub){
         inputText.value = path.join(folderPath, fileName);
     }
